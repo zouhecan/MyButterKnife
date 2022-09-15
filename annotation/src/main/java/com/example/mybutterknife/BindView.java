@@ -5,10 +5,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.SOURCE)
-public @interface MyAnnotation {
-    String name() default "undefined";
+import androidx.annotation.IdRes;
 
-    String text() default "";
+@Retention(RetentionPolicy.SOURCE)
+@Target(ElementType.FIELD)
+public @interface BindView {
+    @IdRes int value();
 }
