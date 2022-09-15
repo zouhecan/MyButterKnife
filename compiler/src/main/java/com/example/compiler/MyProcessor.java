@@ -116,7 +116,7 @@ public class MyProcessor extends AbstractProcessor {
                 classBuilder.addMethod(MethodSpec.methodBuilder("getAuthor")
                         .addModifiers(Modifier.PUBLIC)
                         .returns(String.class)
-                        .addStatement("return $N", "\"<zouhecan>\"")
+                        .addStatement("return $N", "\"<hc.zou>\"")
                         .build()
                 );
 

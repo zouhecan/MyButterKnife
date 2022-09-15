@@ -1,7 +1,6 @@
 package com.example.mybutterknife;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -17,6 +16,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         MainActivity$Binding mainActivity$Binding = new MainActivity$Binding(this);
-        Log.d(TAG, mainActivity$Binding.getAuthor());
+        contentTv.setText(mainActivity$Binding.getAuthor());
     }
 }
