@@ -1,0 +1,4 @@
+rootProject.name = "MyButterKnife"
+include ':app'
+include ':compiler'
+include ':annotation'
