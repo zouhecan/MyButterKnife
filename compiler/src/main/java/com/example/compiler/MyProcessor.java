@@ -55,128 +55,9 @@ public class MyProcessor extends AbstractProcessor {
             buildAnnotatedElement(roundEnv, BindView.class);
             buildAnnotatedElement(roundEnv, OnClick.class);
         } else {
-            for (Map.Entry<String, List<Element>> entry : annotationClassMap.entrySet()) {
-                String packageName = entry.getKey().split("_")[0];
-                String typeName = entry.getKey().split("_")[1];
-                ClassName className = ClassName.get(packageName, typeName);
-                ClassName generatedClassName = ClassName
-                        .get(packageName, NameStore.getGeneratedClassName(typeName));
-
-                /*
-                创建要生成的类，如下所示
-                @Keep
-                public class MainActivity$Binding {}*/
-                TypeSpec.Builder classBuilder = TypeSpec.classBuilder(generatedClassName)
-                        .addModifiers(Modifier.PUBLIC)
-                        .addAnnotation(Keep.class);
-
-                /*添加构造函数
-                *   public MainActivity$Binding(MainActivity activity) {
-                    bindViews(activity);
-                    bindOnClicks(activity);
-                  }
-                */
-                classBuilder.addMethod(MethodSpec.constructorBuilder()
-                        .addModifiers(Modifier.PUBLIC)
-                        .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY)
-                        .addStatement("$N($N)",
-                                NameStore.Method.BIND_VIEWS,
-                                NameStore.Variable.ANDROID_ACTIVITY)
-                        .addStatement("$N($N)",
-                                NameStore.Method.BIND_ON_CLICKS,
-                                NameStore.Variable.ANDROID_ACTIVITY)
-                        .build());
-
-                /*创建方法bindViews(MainActivity activity)
-                 * private void bindViews(MainActivity activity) {}
-                 */
-                MethodSpec.Builder bindViewsMethodBuilder = MethodSpec
-                        .methodBuilder(NameStore.Method.BIND_VIEWS)
-                        .addModifiers(Modifier.PRIVATE)
-                        .returns(void.class)
-                        .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY);
-
-                /*增加方法体
-                 * activity.tvHello = (TextView)activity.findViewById(2131165326);
-                 * */
-                for (VariableElement variableElement : ElementFilter.fieldsIn(entry.getValue())) {
-                    BindView bindView = variableElement.getAnnotation(BindView.class);
-                    if (bindView != null) {
-                        bindViewsMethodBuilder.addStatement("$N.$N = ($T)$N.findViewById($L)",
-                                NameStore.Variable.ANDROID_ACTIVITY,
-                                variableElement.getSimpleName(),
-                                variableElement,
-                                NameStore.Variable.ANDROID_ACTIVITY,
-                                bindView.value());
-                    }
-                }
-                //将构建出来的方法添加到类里面
-                classBuilder.addMethod(bindViewsMethodBuilder.build());
-
-                classBuilder.addMethod(MethodSpec.methodBuilder("getAuthor")
-                        .addModifiers(Modifier.PUBLIC)
-                        .returns(String.class)
-                        .addStatement("return $N", "\"<hc.zou>\"")
-                        .build()
-                );
-
-                /*以下构建如下代码
-                *   private void bindOnClicks(final MainActivity activity) {
-                    activity.findViewById(2131165218).setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View view) {
-                        activity.onHelloBtnClick(view);
-                      }
-                    });
-                  }
-                 */
-                ClassName androidOnClickListenerClassName = ClassName.get(
-                        NameStore.Package.ANDROID_VIEW,
-                        NameStore.Class.ANDROID_VIEW,
-                        NameStore.Class.ANDROID_VIEW_ON_CLICK_LISTENER);
-
-                ClassName androidViewClassName = ClassName.get(
-                        NameStore.Package.ANDROID_VIEW,
-                        NameStore.Class.ANDROID_VIEW);
-
-                MethodSpec.Builder bindOnClicksMethodBuilder = MethodSpec
-                        .methodBuilder(NameStore.Method.BIND_ON_CLICKS)
-                        .addModifiers(Modifier.PRIVATE)
-                        .returns(void.class)
-                        .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY, Modifier.FINAL);
-
-                for (ExecutableElement executableElement : ElementFilter.methodsIn(entry.getValue())) {
-                    OnClick onClick = executableElement.getAnnotation(OnClick.class);
-                    if (onClick != null) {
-                        TypeSpec onClickListenerClass = TypeSpec.anonymousClassBuilder("")
-                                .addSuperinterface(androidOnClickListenerClassName)
-                                .addMethod(MethodSpec.methodBuilder(NameStore.Method.ANDROID_VIEW_ON_CLICK)
-                                        .addModifiers(Modifier.PUBLIC)
-                                        .addParameter(androidViewClassName, NameStore.Variable.ANDROID_VIEW)
-                                        .addStatement("$N.$N($N)",
-                                                NameStore.Variable.ANDROID_ACTIVITY,
-                                                executableElement.getSimpleName(),
-                                                NameStore.Variable.ANDROID_VIEW)
-                                        .returns(void.class)
-                                        .build())
-                                .build();
-                        bindOnClicksMethodBuilder.addStatement("$N.findViewById($L).setOnClickListener($L)",
-                                NameStore.Variable.ANDROID_ACTIVITY,
-                                onClick.value(),
-                                onClickListenerClass);
-                    }
-                }
-                classBuilder.addMethod(bindOnClicksMethodBuilder.build());
-
-                //将类写入文件中
-                try {
-                    JavaFile.builder(packageName,
-                            classBuilder.build())
-                            .build()
-                            .writeTo(filer);
-                } catch (IOException e) {
-                    messager.printMessage(Diagnostic.Kind.ERROR, e.toString());
-                }
-            }
+            messager.printMessage(Diagnostic.Kind.NOTE, "<<< Handle MyButterKnife annotation start >>>");
+            createAutoCodeFile();
+            messager.printMessage(Diagnostic.Kind.NOTE, "<<< Handle MyButterKnife annotation finish >>>");
         }
         return true;
     }
@@ -192,6 +73,137 @@ public class MyProcessor extends AbstractProcessor {
     @Override
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latestSupported();
+    }
+
+    /**
+     * 自动生成代码
+     */
+    private void createAutoCodeFile() {
+        for (Map.Entry<String, List<Element>> entry : annotationClassMap.entrySet()) {
+            String packageName = entry.getKey().split("_")[0];
+            String typeName = entry.getKey().split("_")[1];
+            ClassName className = ClassName.get(packageName, typeName);
+            ClassName generatedClassName = ClassName
+                    .get(packageName, NameStore.getGeneratedClassName(typeName));
+
+                /*
+                创建要生成的类，如下所示
+                @Keep
+                public class MainActivity$Binding {}*/
+            TypeSpec.Builder classBuilder = TypeSpec.classBuilder(generatedClassName)
+                    .addModifiers(Modifier.PUBLIC)
+                    .addAnnotation(Keep.class);
+
+                /*添加构造函数
+                *   public MainActivity$Binding(MainActivity activity) {
+                    bindViews(activity);
+                    bindOnClicks(activity);
+                  }
+                */
+            classBuilder.addMethod(MethodSpec.constructorBuilder()
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY)
+                    .addStatement("$N($N)",
+                            NameStore.Method.BIND_VIEWS,
+                            NameStore.Variable.ANDROID_ACTIVITY)
+                    .addStatement("$N($N)",
+                            NameStore.Method.BIND_ON_CLICKS,
+                            NameStore.Variable.ANDROID_ACTIVITY)
+                    .build());
+
+            /*创建方法bindViews(MainActivity activity)
+             * private void bindViews(MainActivity activity) {}
+             */
+            MethodSpec.Builder bindViewsMethodBuilder = MethodSpec
+                    .methodBuilder(NameStore.Method.BIND_VIEWS)
+                    .addModifiers(Modifier.PRIVATE)
+                    .returns(void.class)
+                    .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY);
+
+            /*增加方法体
+             * activity.tvHello = (TextView)activity.findViewById(2131165326);
+             * */
+            for (VariableElement variableElement : ElementFilter.fieldsIn(entry.getValue())) {
+                BindView bindView = variableElement.getAnnotation(BindView.class);
+                if (bindView != null) {
+                    bindViewsMethodBuilder.addStatement("$N.$N = ($T)$N.findViewById($L)",
+                            NameStore.Variable.ANDROID_ACTIVITY,
+                            variableElement.getSimpleName(),
+                            variableElement,
+                            NameStore.Variable.ANDROID_ACTIVITY,
+                            bindView.value());
+                }
+            }
+            //将构建出来的方法添加到类里面
+            classBuilder.addMethod(bindViewsMethodBuilder.build());
+
+            /*public String getAuthor() {
+              return "<hc.zou>";
+              }*/
+            classBuilder.addMethod(MethodSpec.methodBuilder("getAuthor")
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(String.class)
+                    .addStatement("return $N", "\"<hc.zou>\"")
+                    .build()
+            );
+
+                /*以下构建如下代码
+                *   private void bindOnClicks(final MainActivity activity) {
+                    activity.findViewById(2131165218).setOnClickListener(new View.OnClickListener() {
+                      public void onClick(View view) {
+                        activity.onHelloBtnClick(view);
+                      }
+                    });
+                  }
+                 */
+            ClassName androidOnClickListenerClassName = ClassName.get(
+                    NameStore.Package.ANDROID_VIEW,
+                    NameStore.Class.ANDROID_VIEW,
+                    NameStore.Class.ANDROID_VIEW_ON_CLICK_LISTENER);
+
+            ClassName androidViewClassName = ClassName.get(
+                    NameStore.Package.ANDROID_VIEW,
+                    NameStore.Class.ANDROID_VIEW);
+
+            MethodSpec.Builder bindOnClicksMethodBuilder = MethodSpec
+                    .methodBuilder(NameStore.Method.BIND_ON_CLICKS)
+                    .addModifiers(Modifier.PRIVATE)
+                    .returns(void.class)
+                    .addParameter(className, NameStore.Variable.ANDROID_ACTIVITY, Modifier.FINAL);
+
+            for (ExecutableElement executableElement : ElementFilter.methodsIn(entry.getValue())) {
+                OnClick onClick = executableElement.getAnnotation(OnClick.class);
+                if (onClick != null) {
+                    TypeSpec onClickListenerClass = TypeSpec.anonymousClassBuilder("")
+                            .addSuperinterface(androidOnClickListenerClassName)
+                            .addMethod(MethodSpec.methodBuilder(NameStore.Method.ANDROID_VIEW_ON_CLICK)
+                                    .addModifiers(Modifier.PUBLIC)
+                                    .addParameter(androidViewClassName, NameStore.Variable.ANDROID_VIEW)
+                                    .addStatement("$N.$N($N)",
+                                            NameStore.Variable.ANDROID_ACTIVITY,
+                                            executableElement.getSimpleName(),
+                                            NameStore.Variable.ANDROID_VIEW)
+                                    .returns(void.class)
+                                    .build())
+                            .build();
+                    bindOnClicksMethodBuilder.addStatement("$N.findViewById($L).setOnClickListener($L)",
+                            NameStore.Variable.ANDROID_ACTIVITY,
+                            onClick.value(),
+                            onClickListenerClass);
+                }
+            }
+            classBuilder.addMethod(bindOnClicksMethodBuilder.build());
+
+            //将类写入文件中
+            try {
+                JavaFile.builder(packageName,
+                        classBuilder.build())
+                        .build()
+                        .writeTo(filer);
+            } catch (IOException e) {
+                messager.printMessage(Diagnostic.Kind.ERROR, e.toString());
+            }
+        }
     }
 
     private void buildAnnotatedElement(RoundEnvironment roundEnv, Class<? extends Annotation> clazz) {
